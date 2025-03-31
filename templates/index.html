@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perlin Noise Generator</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 400px;
+      margin: auto;
+      padding: 20px;
+      background: #1E1E1E;
+      border-radius: 10px;
+      box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+    }
+    canvas {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+      background: black;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+    input[type="range"],
+    input[type="number"] {
+      width: 70%;
+    }
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 10px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 40%;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .download-container {
+      margin-top: 10px;
+    }
+    .color-counts {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #7f8fa6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Perlin Noise Generator</h2>
+
+    <!-- Canvas for rendering -->
+    <canvas id="noiseCanvas" width="576" height="704"></canvas>
+
+    <!-- Color Counts Display -->
+    <div id="colorCounts" class="color-counts"></div>
+
+    <!-- Scale Factor Slider -->
+    <div class="slider-container">
+      <label for="scale">Scale:</label>
+      <input type="range" id="scale" min="0.01" max="1.0" step="0.01" value="0.1">
+      <span id="scaleValue">0.1</span>
+    </div>
+
+    <!-- Light Count Input -->
+    <div class="slider-container">
+      <label for="lightsInput">Light Count:</label>
+      <input type="number" id="lightsInput" min="0" max="99" value="12">
+    </div>
+
+    <!-- Medium/Dark Ratio Slider -->
+    <div class="slider-container">
+      <label for="mediumSlider">Medium / Dark (% Medium):</label>
+      <input type="range" id="mediumSlider" min="0" max="100" step="1" value="50">
+      <span id="mediumValue">50%</span>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display: flex; justify-content: space-around;">
+      <button onclick="randomizeSeed()">Randomize Seed</button>
+      <button onclick="downloadCanvas()">Download Image</button>
+    </div>
+  </div>
+
+  <!-- Include the noise.js library -->
+  <script src="https://cdn.jsdelivr.net/gh/josephg/noisejs/perlin.js"></script>
+
+  <script>
+    const FIXED_WIDTH = 9;
+    const FIXED_HEIGHT = 11;
+    const CELL_SIZE = 64;  // Scale factor per cell
+    const DARK_BLUE = [60, 80, 130], 
+          MEDIUM_BLUE = [120, 150, 200], 
+          LIGHT_BLUE = [180, 210, 255];
+    const totalCells = FIXED_WIDTH * FIXED_HEIGHT;
+    
+    let scaleFactor = parseFloat(document.getElementById("scale").value);
+    let seed = Math.random() * 10000;  // Random initial seed
+
+    // Update scale value and regenerate noise on change
+    document.getElementById("scale").oninput = function() {
+      scaleFactor = parseFloat(this.value);
+      document.getElementById("scaleValue").innerText = this.value;
+      generateNoise();
+    };
+
+    // Regenerate noise on light count change
+    document.getElementById("lightsInput").oninput = function() {
+      generateNoise();
+    };
+
+    // Update medium/dark ratio display and regenerate noise on change
+    document.getElementById("mediumSlider").oninput = function() {
+      document.getElementById("mediumValue").innerText = this.value + "%";
+      generateNoise();
+    };
+
+    function generateNoise() {
+      const canvas = document.getElementById("noiseCanvas");
+      const ctx = canvas.getContext("2d");
+      const noiseGrid = [];
+
+      // Read user inputs
+      const lightsCount = parseInt(document.getElementById("lightsInput").value) || 0;
+      if(lightsCount > totalCells) {
+        alert("Light count cannot exceed " + totalCells);
+        return;
+      }
+      const remaining = totalCells - lightsCount;
+      const mediumPercent = parseInt(document.getElementById("mediumSlider").value) / 100;
+      const mediumCount = Math.round(mediumPercent * remaining);
+      const darkCount = remaining - mediumCount;
+
+      noise.seed(seed);
+
+      for (let y = 0; y < FIXED_HEIGHT; y++) {
+        for (let x = 0; x < FIXED_WIDTH; x++) {
+          const noiseVal = noise.perlin2(x * scaleFactor, y * scaleFactor);
+          noiseGrid.push({ x, y, value: noiseVal });
+        }
+      }
+
+      // Sort the noise grid by the noise value
+      noiseGrid.sort((a, b) => a.value - b.value);
+
+      // Create a color map array for the grid cells
+      const colorMap = new Array(totalCells);
+
+      // Assign colors based on sorted noise values:
+      // First darkCount cells become DARK_BLUE, next mediumCount become MEDIUM_BLUE,
+      // and the remaining become LIGHT_BLUE.
+      for (let i = 0; i < darkCount; i++) {
+        colorMap[noiseGrid[i].y * FIXED_WIDTH + noiseGrid[i].x] = DARK_BLUE;
+      }
+      for (let i = darkCount; i < darkCount + mediumCount; i++) {
+        colorMap[noiseGrid[i].y * FIXED_WIDTH + noiseGrid[i].x] = MEDIUM_BLUE;
+      }
+      for (let i = darkCount + mediumCount; i < noiseGrid.length; i++) {
+        colorMap[noiseGrid[i].y * FIXED_WIDTH + noiseGrid[i].x] = LIGHT_BLUE;
+      }
+
+      // Draw the grid on the canvas
+      for (let y = 0; y < FIXED_HEIGHT; y++) {
+        for (let x = 0; x < FIXED_WIDTH; x++) {
+          ctx.fillStyle = `rgb(${colorMap[y * FIXED_WIDTH + x].join(",")})`;
+          ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+      }
+      
+      // Update the counts display below the canvas
+      document.getElementById("colorCounts").innerText = 
+        `Lights: ${lightsCount}, Medium: ${mediumCount}, Dark: ${darkCount}`;
+    }
+
+    function randomizeSeed() {
+      seed = Math.random() * 10000;
+      generateNoise();
+    }
+
+    function downloadCanvas() {
+      const canvas = document.getElementById("noiseCanvas");
+      const link = document.createElement("a");
+      link.download = 'perlin_noise.png';
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    // Initial generation of noise
+    generateNoise();
+  </script>
+</body>
+</html>
