@@ -14,8 +14,8 @@ The Perlin Noise Generator is a web interface built using Flask and vanilla Java
 
 ## Demo Images
 
-- [demo1.png](images/demo1.png)
-- [demo2.png](images/demo2.png)
+![demo1.png](images/demo1.png)
+![demo2.png](images/demo2.png)
 
 
 ## Installation
